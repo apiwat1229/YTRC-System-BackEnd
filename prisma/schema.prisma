@@ -1,0 +1,1066 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id       String  @id @default(uuid())
+  email    String  @unique
+  username String? @unique
+  password String
+  role     String  @default("staff_1")
+
+  firstName   String? @map("first_name")
+  lastName    String? @map("last_name")
+  displayName String? @map("display_name")
+  avatar      String?
+  permissions Json?   @default("[]")
+
+  department String?
+  position   String?
+
+  status  UserStatus @default(ACTIVE)
+  pinCode String?    @map("pin_code")
+
+  employeeId String? @unique @map("employee_id")
+  site       String?
+
+  isHod Boolean @default(false) @map("is_hod")
+
+  hodId        String? @map("hod_id")
+  hod          User?   @relation("UserHod", fields: [hodId], references: [id])
+  subordinates User[]  @relation("UserHod")
+
+  managerId          String? @map("manager_id")
+  manager            User?   @relation("UserManager", fields: [managerId], references: [id])
+  directSubordinates User[]  @relation("UserManager")
+
+  roleId     String? @map("role_id")
+  roleRecord Role?   @relation(fields: [roleId], references: [id])
+
+  notificationGroups NotificationGroup[] @relation("NotificationGroupMembers")
+
+  forceChangePassword Boolean   @default(false) @map("force_change_password")
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lastLoginAt         DateTime? @map("last_login_at")
+  preferences         Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  posts     Post[]
+
+  notifications    Notification[]
+  approvalRequests ApprovalRequest[] @relation("Requester")
+  approverRequests ApprovalRequest[] @relation("Approver")
+
+  appPermissions UserAppPermission[]
+
+  uploadedBooks KnowledgeBook[] @relation("KnowledgeBookUploader")
+  bookViews     BookView[]      @relation("BookViewer")
+
+  requesterTickets ITTicket[]      @relation("TicketRequester")
+  assigneeTickets  ITTicket[]      @relation("TicketAssignee")
+  ticketComments   TicketComment[]
+
+  @@map("users")
+}
+
+model UserAppPermission {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appName   String
+  actions   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, appName])
+  @@map("user_app_permissions")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+  @@map("posts")
+}
+
+model Province {
+  id        Int      @id
+  code      String   @unique
+  name_th   String
+  name_en   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  suppliers Supplier[]
+  districts District[]
+
+  @@map("provinces")
+}
+
+model District {
+  id         Int      @id
+  code       String   @unique
+  name_th    String
+  name_en    String
+  provinceId Int      @map("province_id")
+  province   Province @relation(fields: [provinceId], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  suppliers    Supplier[]
+  subdistricts Subdistrict[]
+
+  @@map("districts")
+}
+
+model Subdistrict {
+  id         Int      @id
+  code       String   @unique
+  name_th    String
+  name_en    String
+  zip_code   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  districtId Int      @map("district_id")
+  district   District @relation(fields: [districtId], references: [id])
+
+  suppliers Supplier[]
+
+  @@map("subdistricts")
+}
+
+model RubberType {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+  category    String?
+  is_active   Boolean @default(true) @map("is_active")
+
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String?   @map("deleted_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([deletedAt])
+  @@map("rubber_types")
+}
+
+model Supplier {
+  id      String  @id @default(uuid())
+  code    String  @unique
+  name    String  @map("display_name")
+  taxId   String? @map("tax_id")
+  address String?
+  phone   String?
+  email   String?
+
+  provinceId    Int?         @map("province_id")
+  province      Province?    @relation(fields: [provinceId], references: [id])
+  districtId    Int?         @map("district_id")
+  district      District?    @relation(fields: [districtId], references: [id])
+  subdistrictId Int?         @map("subdistrict_id")
+  subdistrict   Subdistrict? @relation(fields: [subdistrictId], references: [id])
+
+  isActive Boolean @default(true) @map("is_active")
+  status   String  @default("ACTIVE") @map("status")
+
+  notes           String?
+  rubberTypeCodes String[] @default([]) @map("rubber_type_codes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  firstName     String? @map("first_name")
+  lastName      String? @map("last_name")
+  title         String?
+  avatar        String?
+  zipCode       String? @map("zip_code")
+  contactPerson String? @map("contact_person")
+
+  certificateNumber String?   @map("certificate_number")
+  certificateExpire DateTime? @map("certificate_expire")
+  score             Float?    @default(0)
+  eudrQuotaUsed     Float?    @map("eudr_quota_used")
+  eudrQuotaCurrent  Float?    @map("eudr_quota_current")
+
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String?   @map("deleted_by")
+
+  @@index([deletedAt])
+  @@map("suppliers")
+}
+
+model Booking {
+  id          String   @id @default(uuid())
+  queueNo     Int      @map("queue_no")
+  bookingCode String   @unique @map("booking_code")
+  date        DateTime
+  startTime   String   @map("start_time")
+  endTime     String   @map("end_time")
+  slot        String?
+
+  supplierId   String @map("supplier_id")
+  supplierCode String @map("supplier_code")
+  supplierName String @map("supplier_name")
+
+  truckType     String? @map("truck_type")
+  truckRegister String? @map("truck_register")
+
+  rubberType      String  @map("rubber_type")
+  lotNo           String? @map("lot_no")
+  estimatedWeight Float?  @map("estimated_weight")
+
+  moisture     Float?  @map("moisture")
+  drcEst       Float?  @map("drc_est")
+  drcRequested Float?  @map("drc_requested")
+  drcActual    Float?  @map("drc_actual")
+  cpAvg        Float?  @map("cp_avg")
+  grade        String? @map("grade")
+
+  recorder   String
+  note       String?   @map("note")
+  status     String    @default("PENDING") @map("status")
+  approvedBy String?   @map("approved_by")
+  approvedAt DateTime? @map("approved_at")
+
+  checkinAt   DateTime? @map("checkin_at")
+  checkedInBy String?   @map("checked_in_by")
+
+  startDrainAt DateTime? @map("start_drain_at")
+  startDrainBy String?   @map("start_drain_by")
+  stopDrainAt  DateTime? @map("stop_drain_at")
+  stopDrainBy  String?   @map("stop_drain_by")
+  drainNote    String?   @map("drain_note")
+
+  weightIn   Float?  @map("weight_in")
+  weightInBy String? @map("weight_in_by")
+  weightOut   Float?  @map("weight_out")
+  weightOutBy String? @map("weight_out_by")
+
+  rubberSource String? @map("rubber_source")
+
+  trailerWeightIn     Float?  @map("trailer_weight_in")
+  trailerWeightOut    Float?  @map("trailer_weight_out")
+  trailerRubberType   String? @map("trailer_rubber_type")
+  trailerRubberSource String? @map("trailer_rubber_source")
+  trailerLotNo        String? @map("trailer_lot_no")
+  trailerMoisture     Float?  @map("trailer_moisture")
+  trailerDrcEst       Float?  @map("trailer_drc_est")
+  trailerDrcRequested Float?  @map("trailer_drc_requested")
+  trailerDrcActual    Float?  @map("trailer_drc_actual")
+  trailerCpAvg        Float?  @map("trailer_cp_avg")
+  trailerGrade        String? @map("trailer_grade")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  labSamples BookingLabSample[]
+
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String?   @map("deleted_by")
+
+  @@index([date, slot])
+  @@index([bookingCode])
+  @@index([deletedAt])
+  @@map("bookings")
+}
+
+model BookingLabSample {
+  id        String  @id @default(uuid())
+  bookingId String  @map("booking_id")
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  sampleNo  Int     @map("sample_no")
+  isTrailer Boolean @default(false) @map("is_trailer")
+
+  beforePress   Float? @map("before_press")
+  basketWeight  Float? @map("basket_weight")
+  cuplumpWeight Float? @map("cuplump_weight")
+  afterPress    Float? @map("after_press")
+  percentCp     Float? @map("percent_cp")
+
+  beforeBaking1     Float? @map("before_baking_1")
+  afterDryerB1      Float? @map("after_dryer_b1")
+  beforeLabDryerB1  Float? @map("before_lab_dryer_b1")
+  afterLabDryerB1   Float? @map("after_lab_dryer_b1")
+  drcB1             Float? @map("drc_b1")
+  moisturePercentB1 Float? @map("moisture_percent_b1")
+  drcDryB1          Float? @map("drc_dry_b1")
+  labDrcB1          Float? @map("lab_drc_b1")
+  recalDrcB1        Float? @map("recal_drc_b1")
+
+  beforeBaking2     Float? @map("before_baking_2")
+  afterDryerB2      Float? @map("after_dryer_b2")
+  beforeLabDryerB2  Float? @map("before_lab_dryer_b2")
+  afterLabDryerB2   Float? @map("after_lab_dryer_b2")
+  drcB2             Float? @map("drc_b2")
+  moisturePercentB2 Float? @map("moisture_percent_b2")
+  drcDryB2          Float? @map("drc_dry_b2")
+  labDrcB2          Float? @map("lab_drc_b2")
+  recalDrcB2        Float? @map("recal_drc_b2")
+
+  beforeBaking3     Float? @map("before_baking_3")
+  afterDryerB3      Float? @map("after_dryer_b3")
+  beforeLabDryerB3  Float? @map("before_lab_dryer_b3")
+  afterLabDryerB3   Float? @map("after_lab_dryer_b3")
+  drcB3             Float? @map("drc_b3")
+  moisturePercentB3 Float? @map("moisture_percent_b3")
+  drcDryB3          Float? @map("drc_dry_b3")
+  labDrcB3          Float? @map("lab_drc_b3")
+  recalDrcB3        Float? @map("recal_drc_b3")
+
+  drc            Float? @map("drc")
+  moistureFactor Float? @map("moisture_factor")
+  recalDrc       Float? @map("recal_drc")
+  difference     Float? @map("difference")
+
+  p0  Float? @map("p0")
+  p30 Float? @map("p30")
+  pri Float? @map("pri")
+
+  storage    String? @map("storage")
+  recordedBy String? @map("recorded_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("booking_lab_samples")
+}
+
+model Notification {
+  id      String             @id @default(uuid())
+  title   String
+  message String
+  type    NotificationType   @default(INFO)
+  status  NotificationStatus @default(UNREAD)
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sourceApp  String
+  actionType String
+  entityId   String?
+  actionUrl  String?
+  metadata   Json?
+
+  approvalRequestId String? @map("approval_request_id")
+  approvalStatus    String? @map("approval_status")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([approvalRequestId])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  REQUEST
+  APPROVE
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+model Pool {
+  id               String  @id @default(uuid())
+  name             String
+  status           String  @default("empty")
+  grade            String? @default("-")
+  rubberType       String? @default("-") @map("rubber_type")
+  capacity         Float   @default(3000)
+  totalWeight      Float   @default(0) @map("total_weight")
+  totalGrossWeight Float   @default(0) @map("total_gross_weight")
+
+  openDate    DateTime? @map("open_date")
+  closeDate   DateTime? @map("close_date")
+  emptyDate   DateTime? @map("empty_date")
+  fillingDate DateTime? @map("filling_date")
+
+  productionPlan String? @map("production_plan")
+
+  items PoolItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("pools")
+}
+
+model PoolItem {
+  id     String @id @default(uuid())
+  poolId String @map("pool_id")
+  pool   Pool   @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  bookingId    String   @map("booking_id")
+  lotNumber    String   @map("lot_number")
+  supplierName String   @map("supplier_name")
+  supplierCode String   @map("supplier_code")
+  date         DateTime
+  netWeight    Float    @map("net_weight")
+  grossWeight  Float    @map("gross_weight")
+  grade        String
+  rubberType   String   @map("rubber_type")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("pool_items")
+}
+
+model NotificationSetting {
+  id String @id @default(uuid())
+
+  sourceApp  String
+  actionType String
+  isActive   Boolean @default(true)
+
+  recipientRoles  Json @default("[]")
+  recipientGroups Json @default("[]")
+  recipientUsers  Json @default("[]")
+  channels        Json @default("[\"IN_APP\"]")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([sourceApp, actionType])
+  @@map("notification_settings")
+}
+
+model ApprovalRequest {
+  id String @id @default(uuid())
+
+  requestType String @map("request_type")
+  entityType  String @map("entity_type")
+  entityId    String @map("entity_id")
+
+  sourceApp  String @map("source_app")
+  actionType String @map("action_type")
+
+  currentData  Json? @map("current_data")
+  proposedData Json? @map("proposed_data")
+
+  reason   String?
+  priority String  @default("NORMAL")
+
+  status ApprovalStatus @default(PENDING)
+
+  requesterId String @map("requester_id")
+  requester   User   @relation("Requester", fields: [requesterId], references: [id])
+
+  approverId String? @map("approver_id")
+  approver   User?   @relation("Approver", fields: [approverId], references: [id])
+
+  submittedAt DateTime  @default(now()) @map("submitted_at")
+  actedAt     DateTime? @map("acted_at")
+  expiresAt   DateTime? @map("expires_at")
+
+  remark String?
+
+  deletedAt DateTime? @map("deleted_at")
+  deletedBy String?   @map("deleted_by")
+
+  logs ApprovalLog[]
+
+  @@index([status])
+  @@index([requesterId])
+  @@index([approverId])
+  @@index([entityType, entityId])
+  @@map("approval_requests")
+}
+
+model ApprovalLog {
+  id String @id @default(uuid())
+
+  approvalRequestId String          @map("approval_request_id")
+  approvalRequest   ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+
+  action   String
+  oldValue Json?  @map("old_value")
+  newValue Json?  @map("new_value")
+
+  actorId   String @map("actor_id")
+  actorName String @map("actor_name")
+  actorRole String @map("actor_role")
+
+  remark    String?
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([approvalRequestId])
+  @@index([actorId])
+  @@map("approval_logs")
+}
+
+model JobOrder {
+  id             String @id @default(uuid())
+  bookNo         String @map("book_no")
+  no             Int    @map("no")
+  jobOrderNo     String @unique @map("job_order_no")
+  contractNo     String @map("contract_no")
+  grade          String
+  otherGrade     String? @map("other_grade")
+  quantityBale   Int     @map("quantity_bale")
+  palletType     String  @map("pallet_type")
+  orderQuantity  Int     @map("order_quantity")
+  palletMarking  Boolean @default(true) @map("pallet_marking")
+  note           String?
+  qaName         String  @map("qa_name")
+  qaDate         DateTime  @map("qa_date")
+  isClosed       Boolean   @default(false) @map("is_closed")
+  productionName String?   @map("production_name")
+  productionDate DateTime? @map("production_date")
+
+  logs JobOrderLog[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("job_orders")
+}
+
+model JobOrderLog {
+  id         String   @id @default(uuid())
+  jobOrderId String   @map("job_order_id")
+  jobOrder   JobOrder @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
+
+  date     DateTime
+  shift    String
+  lotStart String   @map("lot_start")
+  lotEnd   String   @map("lot_end")
+  quantity Int
+  sign     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("job_order_logs")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  RETURNED
+  EXPIRED
+  VOID
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  color       String?
+  permissions String[] @default([])
+  isActive    Boolean  @default(true) @map("is_active")
+
+  users User[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model NotificationGroup {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  icon        String?
+  color       String?
+  isActive    Boolean @default(true)
+
+  members User[] @relation("NotificationGroupMembers")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PrinterDepartment {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  userMappings PrinterUserMapping[]
+  usageRecords PrinterUsageRecord[]
+
+  @@map("printer_departments")
+}
+
+model PrinterUserMapping {
+  id           String            @id @default(uuid())
+  userName     String            @unique @map("user_name")
+  departmentId String            @map("department_id")
+  department   PrinterDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  @@map("printer_user_mappings")
+}
+
+model PrinterUsageRecord {
+  id           String             @id @default(uuid())
+  period       DateTime
+  userName     String             @map("user_name")
+  departmentId String?            @map("department_id")
+  department   PrinterDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  serialNo   String @default("unknown") @map("serial_no")
+  printBW    Int    @default(0) @map("print_bw")
+  printColor Int    @default(0) @map("print_color")
+  copyBW     Int    @default(0) @map("copy_bw")
+  copyColor  Int    @default(0) @map("copy_color")
+  total      Int    @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([period, userName, serialNo])
+  @@map("printer_usage_records")
+}
+
+model KnowledgeBook {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  category     String
+  fileType     String    @map("file_type")
+  filePath     String    @map("file_path")
+  fileName     String    @map("file_name")
+  fileSize     Int       @map("file_size")
+  coverImage   String?   @map("cover_image")
+  author       String?
+  uploadedBy   String    @map("uploaded_by")
+  uploader     User      @relation("KnowledgeBookUploader", fields: [uploadedBy], references: [id])
+  views        Int       @default(0)
+  downloads    Int       @default(0)
+  tags         String[]  @default([])
+  isPublished  Boolean   @default(true) @map("is_published")
+  trainingDate DateTime? @map("training_date")
+  attendees    Int?      @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  viewHistory BookView[]
+
+  @@index([category])
+  @@index([uploadedBy])
+  @@index([isPublished])
+  @@map("knowledge_books")
+}
+
+model BookView {
+  id       String        @id @default(uuid())
+  bookId   String        @map("book_id")
+  book     KnowledgeBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  userId   String        @map("user_id")
+  user     User          @relation("BookViewer", fields: [userId], references: [id])
+  viewedAt DateTime      @default(now()) @map("viewed_at")
+
+  @@index([bookId])
+  @@index([userId])
+  @@map("book_views")
+}
+
+model ITAsset {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  category     String
+  stock        Int      @default(0)
+  minStock     Int      @default(2) @map("min_stock")
+  location     String?
+  description  String?
+  image        String?
+  price        Float?   @default(0)
+  receivedDate DateTime @default(now()) @map("received_date")
+  receiver     String?
+  serialNumber String?  @map("serial_number")
+  barcode      String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tickets ITTicket[]
+
+  @@map("it_assets")
+}
+
+model RawMaterialPlan {
+  id              String   @id @default(uuid())
+  planNo          String   @unique @map("plan_no")
+  revisionNo      String   @map("revision_no")
+  refProductionNo String   @map("ref_production_no")
+  issuedDate      DateTime @map("issued_date")
+
+  rows        RawMaterialPlanRow[]
+  poolDetails RawMaterialPlanPoolDetail[]
+
+  creator String  @map("creator")
+  checker String? @map("checker")
+  status  String  @default("DRAFT")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("raw_material_plans")
+}
+
+model RawMaterialPlanRow {
+  id     String          @id @default(uuid())
+  planId String          @map("plan_id")
+  plan   RawMaterialPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  date      DateTime
+  dayOfWeek String   @map("day_of_week")
+  shift     String
+  grade     String?
+
+  ratioUSS Float? @map("ratio_uss")
+  ratioCL  Float? @map("ratio_cl")
+  ratioBK  Float? @map("ratio_bk")
+
+  productTarget Float? @map("product_target")
+  clConsumption Float? @map("cl_consumption")
+  ratioBorC     Float? @map("ratio_b_or_c")
+
+  plan1Pool String? @map("plan1_pool")
+  plan1Note String? @map("plan1_note")
+  plan2Pool String? @map("plan2_pool")
+  plan2Note String? @map("plan2_note")
+  plan3Pool String? @map("plan3_pool")
+  plan3Note String? @map("plan3_note")
+
+  cuttingPercent Float? @map("cutting_percent")
+  cuttingPalette Int?   @map("cutting_palette")
+
+  remarks String?
+
+  specialIndicator String? @map("special_indicator")
+
+  @@map("raw_material_plan_rows")
+}
+
+model RawMaterialPlanPoolDetail {
+  id     String          @id @default(uuid())
+  planId String          @map("plan_id")
+  plan   RawMaterialPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  poolNo      String    @map("pool_no")
+  grossWeight Float?    @map("gross_weight")
+  netWeight   Float?    @map("net_weight")
+  drc         Float?    @map("drc")
+  moisture    Float?    @map("moisture")
+  p0          Float?    @map("p0")
+  pri         Float?    @map("pri")
+  clearDate   DateTime? @map("clear_date")
+  grade       String?   @map("grade")
+  remark      String?
+
+  @@map("raw_material_plan_pool_details")
+}
+
+model ITTicket {
+  id          String  @id @default(uuid())
+  ticketNo    String  @unique @map("ticket_no")
+  title       String
+  description String?
+  category    String
+  priority    String  @default("Medium")
+  location    String?
+  status      String  @default("Open")
+
+  requesterId String @map("requester_id")
+  requester   User   @relation("TicketRequester", fields: [requesterId], references: [id])
+
+  assigneeId String? @map("assignee_id")
+  assignee   User?   @relation("TicketAssignee", fields: [assigneeId], references: [id])
+
+  isAssetRequest Boolean   @default(false) @map("is_asset_request")
+  assetId        String?   @map("asset_id")
+  asset          ITAsset?  @relation(fields: [assetId], references: [id])
+  quantity       Int?      @default(0)
+  expectedDate   DateTime? @map("expected_date")
+  approverId     String?   @map("approver_id")
+
+  issuedAt   DateTime? @map("issued_at")
+  issuedBy   String?   @map("issued_by")
+  resolvedAt DateTime? @map("resolved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  comments TicketComment[]
+
+  @@index([requesterId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([assetId])
+  @@map("it_tickets")
+}
+
+model TicketComment {
+  id        String   @id @default(uuid())
+  content   String
+  ticketId  String   @map("ticket_id")
+  ticket    ITTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@index([userId])
+  @@map("ticket_comments")
+}
+
+model Machine {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  model    String?
+  location String?
+  status   String  @default("Active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  repairs RepairLog[]
+
+  @@map("machines")
+}
+
+model RepairLog {
+  id          String   @id @default(uuid())
+  machineId   String   @map("machine_id")
+  machine     Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  machineName String   @map("machine_name")
+  date        DateTime @default(now())
+  issue       String
+  technician  String
+  parts       Json?    @default("[]")
+  totalCost   Float    @default(0) @map("total_cost")
+  status      String   @default("COMPLETED")
+  images      String[] @default([])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("repair_logs")
+}
+
+model MaintenanceStock {
+  id          String  @id @default(uuid())
+  code        String? @unique
+  name        String
+  nameTH      String? @map("name_th")
+  nameEN      String? @map("name_en")
+  category    String?
+  location    String?
+  glCode      String? @map("gl_code")
+  qty         Int     @default(0)
+  price       Float   @default(0)
+  unit        String
+  minQty      Int     @default(0) @map("min_qty")
+  description String?
+  image       String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("maintenance_stocks")
+}
+
+model GLCode {
+  id            String  @id @default(uuid())
+  transactionId String  @map("transaction_id")
+  description   String
+  code          String
+  purpose       String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("gl_codes")
+}
+
+model StockCategory {
+  id     String  @id @default(uuid())
+  name   String  @unique
+  nameEN String? @map("name_en")
+  nameTH String? @map("name_th")
+  prefix String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("stock_categories")
+}
+
+model StorageLocation {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  nameEN   String? @map("name_en")
+  nameTH   String? @map("name_th")
+  building String?
+  zone     String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("storage_locations")
+}
+
+model ProductionReport {
+  id             String   @id @default(uuid())
+  dryerName      String   @map("dryer_name")
+  bookNo         String   @map("book_no")
+  pageNo         String   @map("page_no")
+  productionDate DateTime @map("production_date")
+  shift          String
+  grade          String
+
+  ratioCL      Float? @map("ratio_cl")
+  ratioUSS     Float? @map("ratio_uss")
+  ratioCutting Float? @map("ratio_cutting")
+
+  weightPalletRemained Float? @map("weight_pallet_remained")
+
+  sampleAccum1 Int? @map("sample_accum_1")
+  sampleAccum2 Int? @map("sample_accum_2")
+  sampleAccum3 Int? @map("sample_accum_3")
+  sampleAccum4 Int? @map("sample_accum_4")
+  sampleAccum5 Int? @map("sample_accum_5")
+
+  rows ProductionReportRow[]
+
+  baleBagLotNo String?   @map("bale_bag_lot_no")
+  checkedBy    String?   @map("checked_by")
+  judgedBy     String?   @map("judged_by")
+  issuedBy     String?   @map("issued_by")
+  issuedAt     DateTime? @map("issued_at")
+
+  status String @default("DRAFT")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("production_reports")
+}
+
+model ProductionReportRow {
+  id       String           @id @default(uuid())
+  reportId String           @map("report_id")
+  report   ProductionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  startTime  String @map("start_time")
+  palletType String @map("pallet_type")
+  lotNo      String @map("lot_no")
+
+  weight1 Float? @map("weight_1")
+  weight2 Float? @map("weight_2")
+  weight3 Float? @map("weight_3")
+  weight4 Float? @map("weight_4")
+  weight5 Float? @map("weight_5")
+
+  sampleCount Int? @map("sample_count")
+
+  weight1Status String? @map("weight_1_status")
+  weight2Status String? @map("weight_2_status")
+  weight3Status String? @map("weight_3_status")
+  weight4Status String? @map("weight_4_status")
+  weight5Status String? @map("weight_5_status")
+  sampleStatus  String? @map("sample_status")
+
+  shippingItems ShippingPlanItem[]
+
+  @@map("production_report_rows")
+}
+
+model ShippingPlan {
+  id       String   @id @default(uuid())
+  planNo   String   @unique @map("plan_no")
+  customer String?
+  planDate DateTime @map("plan_date")
+  status   String   @default("DRAFT")
+  remark   String?
+
+  items ShippingPlanItem[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("shipping_plans")
+}
+
+model ShippingPlanItem {
+  id             String       @id @default(uuid())
+  shippingPlanId String       @map("shipping_plan_id")
+  shippingPlan   ShippingPlan @relation(fields: [shippingPlanId], references: [id], onDelete: Cascade)
+
+  rowId    String              @map("row_id")
+  row      ProductionReportRow @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  palletNo Int                 @map("pallet_no")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([shippingPlanId, rowId, palletNo])
+  @@map("shipping_plan_items")
+}
+
+model CpkAnalysis {
+  id           String  @id @default(uuid())
+  title        String
+  lsl          Float
+  usl          Float
+  subgroupSize Int     @map("subgroup_size")
+  dataPoints   Float[] @map("data_points")
+  note         String?
+
+  recordedBy String?  @map("recorded_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("cpk_analyses")
+}
+
+model ESignature {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  signature  String   @db.Text
+  status     Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([employeeId])
+  @@map("e_signatures")
+}
