@@ -1,0 +1,92 @@
+version: '3.9'
+
+services:
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: ytrc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ytrc_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ytrc_password}
+      POSTGRES_DB: ${POSTGRES_DB:-ytrc_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ytrc_network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-ytrc_user} -d ${POSTGRES_DB:-ytrc_db}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # NestJS API
+  # ===========================================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: ytrc_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      API_PORT: 2530
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ytrc_user}:${POSTGRES_PASSWORD:-ytrc_password}@postgres:5432/${POSTGRES_DB:-ytrc_db}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - ytrc_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:2530/api/v1 || exit 1']
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+
+  # ===========================================================================
+  # Nginx Reverse Proxy with SSL
+  # ===========================================================================
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ytrc_nginx
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./star_ytrc_co_th:/etc/nginx/ssl:ro
+      - uploads_data:/var/www/uploads:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - ytrc_network
+    depends_on:
+      api:
+        condition: service_healthy
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  ytrc_network:
+    driver: bridge
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  uploads_data:
+    driver: local
+  nginx_logs:
+    driver: local

@@ -1,0 +1,63 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Build output
+dist
+build
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+test
+coverage
+**/*.spec.ts
+**/*.e2e-spec.ts
+
+# Logs
+logs
+*.log
+
+# TypeScript build info
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Uploads (mounted as volume)
+uploads
+
+# SSL certs
+star_ytrc_co_th
+
+# Nginx
+nginx
+
+# Scripts
+scripts
+
+# Prisma migrations (only schema needed for generate)
+# prisma/migrations
+
+# README
+README.md
