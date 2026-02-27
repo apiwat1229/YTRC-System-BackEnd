@@ -58,7 +58,7 @@ EXPOSE 2530
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD wget -qO- http://localhost:2530/api/v1 || exit 1
+    CMD wget -qO- http://localhost:2530/api/v1 || exit 1
 
 # Start the application
 CMD ["node", "dist/main"]
